@@ -3,8 +3,6 @@ class IntelligentSupportDeligatorJob < ApplicationJob
 
   def perform(*args)
     puts args
-    
-    puts "***********"
 
     # Do something later
   end
