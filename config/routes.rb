@@ -4,4 +4,5 @@ Rails.application.routes.draw do
   # resources :home
 
   root 'home#index'
+  post 'csr/create_csr'
 end
