@@ -28,7 +28,7 @@ class CsrController < ApplicationController
                             :headers=> {:content_type=>:json,
                                         :accept=> :json,
                                         :Authorization => "Basic dmltYXJzaF9rb3VsQHlhaG9vLmNvbTo1eHVvdlBmZVk5U1dBdUxLTVdDMDNBMkI="},
-                            :payload=> {"body": csr_key.to_s}.to_json) { |response, request, result|
+                            :payload=> {"body": "{code:title=CSR Key|borderStyle=solid}#{csr_key.to_s}{code}" }.to_json) { |response, request, result|
 
       if response.code.to_i >= 200 && response.code.to_i <= 299 # successful execution
         render json: {success: 'csr posted'}, status: :ok
@@ -40,6 +40,26 @@ class CsrController < ApplicationController
     else
       Rails.logger.error "CSR not created: #{csr_details}"
       render json: { errors: "Not a CSR creation event" }, status: :bad_request
+    end
+  end
+
+  def create_issue_in_another_account
+    event_type = params[:webhookEvent]
+    if event_type == "jira:issue_created"
+      summary = params["issue"]["fields"]["summary"]
+      description = params["changelog"]["items"].select{|item| item["field"] == "description"}.first["toString"]
+      issue_type = params["issue"]["fields"]["issuetype"]["name"]
+      response = RestClient.post "https://zeta-hackathon-2.atlassian.net/rest/api/2/issue/", { "fields": { "assignee": {"id": "557058:fa655e19-35e2-4dd7-9b7d-52aa362e8c16"}, "project": { "id": "10000" }, "summary": "#{summary}", "description": "#{description}", "issuetype": { "name": "#{issue_type}" } } }.to_json, {content_type: :json, accept: :json, authorization: "Basic c2hhbmsyN0BnbWFpbC5jb206ellhck5GOUV3UmlnSk1sRkw2cm9BMzY1" }
+      if response.code.to_i >= 200 && response.code.to_i <= 299 # successful execution
+        render json: {success: 'comment posted'}, status: :ok
+        return
+      else
+        render json: { errors: "couldn't post the comment" }, status: :bad_request
+      end
+    else
+      Rails.logger.error "Not a jira issue creation payload"
+      render json: { errors: "Not a CSR creation event" }, status: :bad_request
+      return
     end
   end
 

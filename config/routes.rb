@@ -5,4 +5,5 @@ Rails.application.routes.draw do
 
   root 'home#index'
   post 'csr/create_csr'
+  post 'csr/create_issue_in_another_account'
 end
