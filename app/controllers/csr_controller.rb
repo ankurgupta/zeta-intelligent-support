@@ -1,4 +1,5 @@
 class CsrController < ApplicationController
+
   def create_csr
     details = params[:comment][:body].split("\n\n")
     csr_details = {}
@@ -6,10 +7,39 @@ class CsrController < ApplicationController
     	value = detail.split(": ")
     	csr_details[value[0]] = value[1]
     end
-    if csr_details["type"] == "CSR"
-      csr_key = generate_csr(csr_details["common_name"], csr_details["organization"], csr_details["country"], csr_details["state"], csr_details["locality"], csr_details["san"], csr_details["department"], csr_details["email"])
-      #csr_key = generate_csr(csr_details["name"], csr_details["organization"], csr_details["Location"], csr_details["state"], csr_details["locality"], csr_details["san"], csr_details["Org"], csr_details["email"])
+    if csr_details["type"].present? && csr_details["type"] == "CSR"
+      csr_details["common name"] = csr_details["common name"].split('|')[1].gsub(']','') if csr_details["common name"].present?
+      csr_details["email"].split('mailto:')[1].gsub(']','') if csr_details["email"].present?
+      sans = []
+      if csr_details["san"].present?
+        sans = []
+        links = csr_details['san'].split(',')
+        links.each do |link|
+          sans << link.split('|')[0].gsub('[','')
+        end
+      end
+
+      csr_key = generate_csr(csr_details["common name"], csr_details["organization"], csr_details["country"], csr_details["state"], csr_details["locality"], sans, csr_details["department"], csr_details["email"])
+      #csr_key = generate_csr(csr_details["common_name"], csr_details["organization"], csr_details["Location"], csr_details["state"], csr_details["locality"], csr_details["san"], csr_details["Org"], csr_details["email"])
       Rails.logger.error "Csr Key: #{csr_key.to_s}"
+      issue_id = params[:issue][:key]
+      RestClient::Request.execute(:method=>:post,
+                            :url=> "https://zeta-hackathon.atlassian.net/rest/api/2/issue/#{issue_id}/comment",
+                            :headers=> {:content_type=>:json,
+                                        :accept=> :json,
+                                        :Authorization => "Basic dmltYXJzaF9rb3VsQHlhaG9vLmNvbTo1eHVvdlBmZVk5U1dBdUxLTVdDMDNBMkI="},
+                            :payload=> {"body": csr_key.to_s}.to_json) { |response, request, result|
+
+      if response.code.to_i >= 200 && response.code.to_i <= 299 # successful execution
+        render json: {success: 'csr posted'}, status: :ok
+        return
+      else
+        render json: { errors: "couldn't post the comment" }, status: :bad_request
+      end
+    }
+    else
+      Rails.logger.error "CSR not created: #{csr_details}"
+      render json: { errors: "Not a CSR creation event" }, status: :bad_request
     end
   end
 
